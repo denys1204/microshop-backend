@@ -1,0 +1,16 @@
+services:
+  postgres-product:
+    image: postgres:18.2
+    container_name: postgres-product
+    environment:
+      - POSTGRES_DB=productdb
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"
+    networks:
+      - microshop-network
+
+networks:
+  microshop-network:
+    driver: bridge
