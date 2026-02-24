@@ -3,6 +3,8 @@ package com.microshop.product.service.impl;
 import com.microshop.product.dto.ProductRequest;
 import com.microshop.product.dto.ProductResponse;
 import com.microshop.product.entity.Product;
+import com.microshop.product.exception.DuplicateSkuException;
+import com.microshop.product.exception.ProductNotFoundException;
 import com.microshop.product.mapper.ProductMapper;
 import com.microshop.product.repository.ProductRepository;
 import com.microshop.product.service.ProductService;
@@ -23,6 +25,10 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse createProduct(ProductRequest request) {
+        if (repository.existsBySku(request.sku())) {
+            throw new DuplicateSkuException(request.sku());
+        }
+
         Product product = mapper.mapToProduct(request);
         Product savedProduct = repository.save(product);
         log.info("Product created with ID: {}", savedProduct.getId());
@@ -42,15 +48,19 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse getProduct(Long id) {
         return repository.findById(id)
                 .map(mapper::mapToProductResponse)
-                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+                .orElseThrow(() -> new ProductNotFoundException(id));
     }
 
     @Override
     @Transactional
     public ProductResponse updateProduct(Long id, ProductRequest request) {
         Product product = repository.findById(id).orElseThrow(
-                () -> new RuntimeException("Product not found with id: " + id)
+                () -> new ProductNotFoundException(id)
         );
+
+        if (repository.existsBySkuAndIdNot(request.sku(), id)) {
+            throw new DuplicateSkuException(request.sku());
+        }
 
         mapper.updateProductFromRequest(request, product);
         Product updatedProduct = repository.save(product);
