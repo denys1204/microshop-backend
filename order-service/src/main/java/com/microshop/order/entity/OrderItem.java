@@ -22,14 +22,21 @@ public class OrderItem {
     @Column(nullable = false)
     private String sku;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal price;
 
     @Column(nullable = false)
     private Integer quantity;
 
-    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
+
+    public void setOrder(Order order) {
+        if (this.order != null && this.order != order) {
+            throw new IllegalStateException("OrderItem already belongs to an order");
+        }
+
+        this.order = order;
+    }
 }

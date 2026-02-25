@@ -13,9 +13,9 @@ import java.util.List;
 
 @Getter
 @Entity
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 @Table(name = "orders")
 public class Order {
     @Id
@@ -29,22 +29,24 @@ public class Order {
     @Column(name = "customer_id", nullable = false)
     private String customerId;
 
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
     private PaymentMethod paymentMethod;
 
+    @Column(name = "payment_id")
     private String paymentId;
 
+    @Builder.Default
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private OrderStatus status;
+    private OrderStatus status = OrderStatus.CREATED;
 
     @Builder.Default
     @Column(nullable = false, length = 3)
     private String currency = "PLN";
 
     @Builder.Default
-    @Column(name = "total_amount", nullable = false)
+    @Column(name = "total_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Version
@@ -61,14 +63,37 @@ public class Order {
     private LocalDateTime updatedAt;
 
     public void addOrderItem(OrderItem item) {
+        if (item == null || item.getPrice() == null || item.getQuantity() == null) {
+            throw new IllegalArgumentException("Item, price, and quantity must not be null");
+        }
+        if (item.getPrice().signum() < 0) {
+            throw new IllegalArgumentException("Item price cannot be negative");
+        }
+        if (item.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Item quantity must be positive");
+        }
+
         orderItems.add(item);
         item.setOrder(this);
         recalculateTotal();
     }
 
+    public void removeOrderItem(OrderItem item) {
+        if (orderItems.remove(item)) {
+            item.setOrder(null);
+            recalculateTotal();
+        }
+    }
+
     public void markAsPaid() {
         if (status != OrderStatus.PLACED) {
             throw new IllegalStateException("Order must be PLACED to be paid");
+        }
+        if (paymentMethod == null) {
+            throw new IllegalStateException("Payment method must be selected before paying");
+        }
+        if (paymentId == null || paymentId.isBlank()) {
+            throw new IllegalStateException("Payment must be authorized (paymentId is missing)");
         }
 
         this.status = OrderStatus.PAID;
