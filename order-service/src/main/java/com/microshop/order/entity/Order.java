@@ -73,14 +73,17 @@ public class Order {
             throw new IllegalArgumentException("Item quantity must be positive");
         }
 
-        orderItems.add(item);
         item.setOrder(this);
+        orderItems.add(item);
         recalculateTotal();
     }
 
     public void removeOrderItem(OrderItem item) {
         if (orderItems.remove(item)) {
-            item.setOrder(null);
+            if (item.getOrder() == this) {
+                item.setOrder(null);
+            }
+
             recalculateTotal();
         }
     }
@@ -104,7 +107,10 @@ public class Order {
         this.status = OrderStatus.PLACED;
     }
 
-    public void validateBeforePlace() {
+    private void validateBeforePlace() {
+        if (status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Order can only be placed from CREATED status");
+        }
         if (orderItems.isEmpty()) {
             throw new IllegalStateException("Order must contain at least one item");
         }
