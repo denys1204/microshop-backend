@@ -2,6 +2,7 @@ package com.microshop.product;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microshop.product.dto.ProductRequest;
+import com.microshop.product.entity.Product;
 import com.microshop.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -24,11 +26,11 @@ class ProductControllerIT extends AbstractIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductRepository repository;
 
     @BeforeEach
     void setUp() {
-        productRepository.deleteAll();
+        repository.deleteAll();
     }
 
     @Test
@@ -48,8 +50,9 @@ class ProductControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.name").value("PlayStation 5"))
                 .andExpect(jsonPath("$.sku").value("SONY-PS5-001"));
 
-        assertThat(productRepository.findAll()).hasSize(1);
-        assertThat(productRepository.findAll().getFirst().getSku()).isEqualTo("SONY-PS5-001");
+        List<Product> products = repository.findAll();
+        assertThat(products).hasSize(1);
+        assertThat(products.getFirst().getSku()).isEqualTo("SONY-PS5-001");
     }
 
     @Test
@@ -72,7 +75,7 @@ class ProductControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.validationErrors[?(@.field == 'name')]").exists())
                 .andExpect(jsonPath("$.validationErrors[?(@.field == 'price')]").exists());
 
-        assertThat(productRepository.findAll()).isEmpty();
+        assertThat(repository.findAll()).isEmpty();
     }
 
     @Test
@@ -105,8 +108,9 @@ class ProductControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.error").value("Conflict"))
                 .andExpect(jsonPath("$.message").value("Product with SKU '" + sharedSku + "' already exists"));
 
-        assertThat(productRepository.findAll()).hasSize(1);
-        assertThat(productRepository.findAll().getFirst().getName()).isEqualTo("First Console");
+        List<Product> products = repository.findAll();
+        assertThat(products).hasSize(1);
+        assertThat(products.getFirst().getName()).isEqualTo("First Console");
     }
 
     @Test
@@ -133,13 +137,14 @@ class ProductControllerIT extends AbstractIntegrationTest {
         String responseJson = mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
         Integer savedId = com.jayway.jsonpath.JsonPath.read(responseJson, "$.id");
 
         mockMvc.perform(get("/api/v1/products/{id}", savedId)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk()) // Очікуємо 200 OK
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(savedId))
                 .andExpect(jsonPath("$.name").value("Nintendo Switch"))
                 .andExpect(jsonPath("$.sku").value("NIN-SW-001"));
@@ -151,14 +156,18 @@ class ProductControllerIT extends AbstractIntegrationTest {
         ProductRequest p2 = new ProductRequest("Samsung Galaxy S24", "Samsung smartphone", new BigDecimal("899.00"), "SAM-S24");
         ProductRequest p3 = new ProductRequest("iPhone 15 Pro", "Premium Apple smartphone", new BigDecimal("1199.00"), "APL-IPH15P");
 
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(p1)));
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(p2)));
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(p3)));
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(p1)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(p2)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(p3)))
+                .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/v1/products")
                         .param("name", "iphone")
                         .param("page", "0")
                         .param("size", "10")
+                        .param("sort", "name,asc")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
@@ -176,6 +185,7 @@ class ProductControllerIT extends AbstractIntegrationTest {
         String createRes = mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
         Integer savedId = com.jayway.jsonpath.JsonPath.read(createRes, "$.id");
@@ -190,18 +200,20 @@ class ProductControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.price").value(45.00))
                 .andExpect(jsonPath("$.sku").value("MOUSE-001-PRO"));
 
-        assertThat(productRepository.findById(savedId.longValue()).orElseThrow().getName()).isEqualTo("New Mouse Pro");
+        assertThat(repository.findById(savedId.longValue()).orElseThrow().getName()).isEqualTo("New Mouse Pro");
     }
 
     @Test
     void shouldReturn409ConflictWhenUpdatingToExistingSku() throws Exception {
         ProductRequest req1 = new ProductRequest("Keyboard 1", "Desc 1", new BigDecimal("50.00"), "KEY-001");
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req1)));
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req1)))
+                .andExpect(status().isCreated());
 
         ProductRequest req2 = new ProductRequest("Keyboard 2", "Desc 2", new BigDecimal("60.00"), "KEY-002");
         String res2 = mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req2)))
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
         Integer idToUpdate = com.jayway.jsonpath.JsonPath.read(res2, "$.id");
@@ -221,6 +233,7 @@ class ProductControllerIT extends AbstractIntegrationTest {
         String res = mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
         Integer idToDelete = com.jayway.jsonpath.JsonPath.read(res, "$.id");
@@ -228,6 +241,6 @@ class ProductControllerIT extends AbstractIntegrationTest {
         mockMvc.perform(delete("/api/v1/products/{id}", idToDelete))
                 .andExpect(status().isNoContent());
 
-        assertThat(productRepository.findById(idToDelete.longValue())).isEmpty();
+        assertThat(repository.findById(idToDelete.longValue())).isEmpty();
     }
 }
