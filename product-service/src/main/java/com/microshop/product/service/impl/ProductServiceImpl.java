@@ -8,17 +8,22 @@ import com.microshop.product.exception.ProductNotFoundException;
 import com.microshop.product.mapper.ProductMapper;
 import com.microshop.product.repository.ProductRepository;
 import com.microshop.product.service.ProductService;
+import com.microshop.product.spec.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.math.BigDecimal;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
+    private final ProductSpecifications specifications;
     private final ProductRepository repository;
     private final ProductMapper mapper;
 
@@ -37,10 +42,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductResponse> getAllProducts() {
-        return repository.findAll().stream()
-                .map(mapper::mapToProductResponse)
-                .toList();
+    public Page<ProductResponse> getProducts(String name, BigDecimal price, String description, String sku, Pageable pageable) {
+        Specification<Product> specification = specifications.getSpecification(name, price, description, sku);
+        return repository.findAll(specification, pageable).map(mapper::mapToProductResponse);
     }
 
     @Override

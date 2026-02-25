@@ -5,12 +5,14 @@ import com.microshop.product.dto.ProductResponse;
 import com.microshop.product.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.math.BigDecimal;
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -30,8 +32,14 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<ProductResponse> getAllProducts() {
-        return service.getAllProducts();
+    public Page<ProductResponse> getProducts(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) BigDecimal price,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String sku,
+            Pageable pageable
+    ) {
+        return service.getProducts(name, price, description, sku, pageable);
     }
 
     @GetMapping("/{id}")
