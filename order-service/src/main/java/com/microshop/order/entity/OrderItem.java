@@ -33,6 +33,10 @@ public class OrderItem {
     private Order order;
 
     public void setOrder(Order order) {
+        if (order == null) {
+            this.order = null;
+            return;
+        }
         if (this.order != null && this.order != order) {
             throw new IllegalStateException("OrderItem already belongs to an order");
         }
