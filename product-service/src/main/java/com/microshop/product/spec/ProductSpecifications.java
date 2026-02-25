@@ -16,18 +16,27 @@ public class ProductSpecifications {
             List<Predicate> predicates = new ArrayList<>();
 
             if (name != null && !name.isBlank()) {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+                String escapedName = escapeLikePattern(name.toLowerCase());
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), "%" + escapedName + "%", '\\'));
             }
             if (price != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("price"), price));
             }
             if (description != null && !description.isBlank()) {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), "%" + description.toLowerCase() + "%"));
+                String escapedDesc = escapeLikePattern(description.toLowerCase());
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), "%" + escapedDesc + "%", '\\'));
             }
             if (sku != null && !sku.isBlank()) {
                 predicates.add(criteriaBuilder.equal(root.get("sku"), sku));
             }
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private String escapeLikePattern(String input) {
+        if (input == null) return null;
+        return input.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }
