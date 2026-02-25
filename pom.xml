@@ -37,6 +37,7 @@
 
     <modules>
         <module>product-service</module>
+        <module>order-service</module>
     </modules>
 
     <build>
