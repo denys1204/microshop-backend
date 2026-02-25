@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class ProductSpecifications {
@@ -16,14 +17,14 @@ public class ProductSpecifications {
             List<Predicate> predicates = new ArrayList<>();
 
             if (name != null && !name.isBlank()) {
-                String escapedName = escapeLikePattern(name.toLowerCase());
+                String escapedName = escapeLikePattern(name.toLowerCase(Locale.ROOT));
                 predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), "%" + escapedName + "%", '\\'));
             }
             if (price != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("price"), price));
             }
             if (description != null && !description.isBlank()) {
-                String escapedDesc = escapeLikePattern(description.toLowerCase());
+                String escapedDesc = escapeLikePattern(description.toLowerCase(Locale.ROOT));
                 predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), "%" + escapedDesc + "%", '\\'));
             }
             if (sku != null && !sku.isBlank()) {
