@@ -63,6 +63,9 @@ public class Order {
     private LocalDateTime updatedAt;
 
     public void addOrderItem(OrderItem item) {
+        if (this.status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Items can only be added to an order in CREATED status");
+        }
         if (item == null || item.getPrice() == null || item.getQuantity() == null) {
             throw new IllegalArgumentException("Item, price, and quantity must not be null");
         }
@@ -97,6 +100,10 @@ public class Order {
     }
 
     public void removeOrderItem(OrderItem item) {
+        if (this.status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Items can only be removed from an order in CREATED status");
+        }
+
         if (orderItems.size() <= 1 && orderItems.contains(item)) {
             throw new IllegalStateException("Order must have at least one item");
         }

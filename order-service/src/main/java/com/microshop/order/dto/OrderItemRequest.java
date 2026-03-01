@@ -3,6 +3,8 @@ package com.microshop.order.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+
 import java.math.BigDecimal;
 
 public record OrderItemRequest(
@@ -14,7 +16,7 @@ public record OrderItemRequest(
         String sku,
 
         @NotNull(message = "Price is required")
-        @Positive(message = "Price must be positive")
+        @PositiveOrZero(message = "Price must be zero or positive")
         BigDecimal price,
 
         @NotNull(message = "Quantity is required")

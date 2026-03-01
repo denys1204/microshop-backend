@@ -1,10 +1,10 @@
 package com.microshop.order.dto;
 
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 public record UpdateQuantityRequest(
         @NotNull(message = "Quantity is required")
-        @Positive(message = "Quantity must be positive")
+        @PositiveOrZero(message = "Quantity must be zero or positive")
         Integer quantity
 ) {}
