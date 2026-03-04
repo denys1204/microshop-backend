@@ -5,6 +5,7 @@ import com.microshop.order.dto.OrderResponse;
 import com.microshop.order.dto.UpdateQuantityRequest;
 import com.microshop.order.entity.Order;
 import com.microshop.order.entity.PaymentMethod;
+import com.microshop.order.exception.OrderNotFoundException;
 import com.microshop.order.mapper.OrderMapper;
 import com.microshop.order.repository.OrderRepository;
 import com.microshop.order.service.OrderService;
@@ -94,7 +95,7 @@ public class OrderServiceImpl implements OrderService {
 
     private Order getOrderEntityOrThrow(String orderNumber) {
         return repository.findByOrderNumber(orderNumber).orElseThrow(
-                () -> new IllegalArgumentException("Order not found: " + orderNumber)
+                () -> new OrderNotFoundException(orderNumber)
         );
     }
 

@@ -1,5 +1,7 @@
 package com.microshop.order.entity;
 
+import com.microshop.order.exception.InvalidOrderStateException;
+import com.microshop.order.exception.OrderValidationException;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -118,26 +120,23 @@ public class Order {
     public void place() {
         requireStatus(OrderStatus.CREATED, "Order can only be placed from CREATED status");
         if (orderItems.isEmpty()) {
-            throw new IllegalStateException("Order must contain at least one item");
+            throw new InvalidOrderStateException("Order must contain at least one item");
         }
-
         this.status = OrderStatus.PLACED;
     }
 
     public void pay() {
         requireStatus(OrderStatus.PLACED, "Order must be PLACED to be paid");
         if (paymentMethod == null || paymentId == null || paymentId.isBlank()) {
-            throw new IllegalStateException("Payment details must be fully provided before paying");
+            throw new InvalidOrderStateException("Payment details must be fully provided before paying");
         }
-
         this.status = OrderStatus.PAID;
     }
 
     public void cancel() {
         if (status == OrderStatus.SHIPPED || status == OrderStatus.DELIVERED || status == OrderStatus.CANCELLED) {
-            throw new IllegalStateException("Order cannot be cancelled in status: " + status);
+            throw new InvalidOrderStateException("Order cannot be cancelled in status: " + status);
         }
-
         this.status = OrderStatus.CANCELLED;
     }
 
@@ -151,21 +150,21 @@ public class Order {
         return orderItems.stream()
                 .filter(i -> i.getProductId().equals(productId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Item with product ID " + productId + " not found in order"));
+                .orElseThrow(() -> new OrderValidationException("Item with product ID " + productId + " not found in order"));
     }
 
     private void requireStatus(OrderStatus expectedStatus, String message) {
         if (this.status != expectedStatus) {
-            throw new IllegalStateException(message);
+            throw new InvalidOrderStateException(message);
         }
     }
 
     private void validateNewItem(OrderItem item) {
         if (item == null || item.getProductId() == null || item.getPrice() == null || item.getQuantity() == null) {
-            throw new IllegalArgumentException("Item, productId, price, and quantity must not be null");
+            throw new OrderValidationException("Item, productId, price, and quantity must not be null");
         }
         if (item.getPrice().signum() < 0 || item.getQuantity() <= 0) {
-            throw new IllegalArgumentException("Price cannot be negative and quantity must be positive");
+            throw new OrderValidationException("Price cannot be negative and quantity must be positive");
         }
     }
 }

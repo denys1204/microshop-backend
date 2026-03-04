@@ -1,5 +1,7 @@
 package com.microshop.order.entity;
 
+import com.microshop.order.exception.InvalidOrderStateException;
+import com.microshop.order.exception.OrderValidationException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -38,15 +40,15 @@ public class OrderItem {
             return;
         }
         if (this.order != null && this.order != order) {
-            throw new IllegalStateException("OrderItem already belongs to an order");
+            throw new InvalidOrderStateException("OrderItem already belongs to an order");
         }
 
         this.order = order;
     }
 
     public void setQuantity(Integer quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
+        if (quantity == null || quantity <= 0) {
+            throw new OrderValidationException("Quantity must be positive");
         }
 
         this.quantity = quantity;
