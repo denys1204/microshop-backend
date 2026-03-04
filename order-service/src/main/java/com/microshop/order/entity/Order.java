@@ -63,8 +63,17 @@ public class Order {
     private LocalDateTime updatedAt;
 
     public void addOrderItem(OrderItem item) {
+        if (this.status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Items can only be added to an order in CREATED status");
+        }
         if (item == null || item.getPrice() == null || item.getQuantity() == null) {
             throw new IllegalArgumentException("Item, price, and quantity must not be null");
+        }
+        if (item.getProductId() == null) {
+            throw new IllegalArgumentException("Item productId must not be null");
+        }
+        if (item.getSku() == null || item.getSku().trim().isEmpty()) {
+            throw new IllegalArgumentException("Item sku must not be blank");
         }
         if (item.getPrice().signum() < 0) {
             throw new IllegalArgumentException("Item price cannot be negative");
@@ -78,17 +87,68 @@ public class Order {
         recalculateTotal();
     }
 
-    public void removeOrderItem(OrderItem item) {
-        if (orderItems.remove(item)) {
-            if (item.getOrder() == this) {
-                item.setOrder(null);
-            }
+    public void updateItemQuantity(Long productId, Integer newQuantity) {
+        if (this.status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Order items can only be updated in CREATED status");
+        }
+        if (newQuantity == null) {
+            throw new IllegalArgumentException("Quantity must not be null");
+        }
+        if (newQuantity < 0) {
+            throw new IllegalArgumentException("Quantity cannot be negative");
+        }
 
+        OrderItem item = orderItems.stream()
+                .filter(i -> i.getProductId().equals(productId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Item with product ID " + productId + " not found in order"));
+
+        if (newQuantity == 0) {
+            removeOrderItem(item);
+        } else {
+            item.setQuantity(newQuantity);
             recalculateTotal();
         }
     }
 
-    public void markAsPaid() {
+    public void removeOrderItem(OrderItem item) {
+        if (this.status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Items can only be removed from an order in CREATED status");
+        }
+
+        if (orderItems.size() <= 1 && orderItems.contains(item)) {
+            throw new IllegalStateException("Order must have at least one item");
+        }
+
+        if (orderItems.remove(item)) {
+            if (item.getOrder() == this) {
+                item.setOrder(null);
+            }
+            recalculateTotal();
+        }
+    }
+
+    public void assignPayment(PaymentMethod method, String paymentId) {
+        if (this.status != OrderStatus.PLACED) {
+            throw new IllegalStateException("Payment can only be assigned to a PLACED order");
+        }
+
+        this.paymentMethod = method;
+        this.paymentId = paymentId;
+    }
+
+    public void place() {
+        if (status != OrderStatus.CREATED) {
+            throw new IllegalStateException("Order can only be placed from CREATED status");
+        }
+        if (orderItems.isEmpty()) {
+            throw new IllegalStateException("Order must contain at least one item");
+        }
+
+        this.status = OrderStatus.PLACED;
+    }
+
+    public void pay() {
         if (status != OrderStatus.PLACED) {
             throw new IllegalStateException("Order must be PLACED to be paid");
         }
@@ -102,18 +162,12 @@ public class Order {
         this.status = OrderStatus.PAID;
     }
 
-    public void place() {
-        validateBeforePlace();
-        this.status = OrderStatus.PLACED;
-    }
+    public void cancel() {
+        if (status == OrderStatus.SHIPPED || status == OrderStatus.DELIVERED || status == OrderStatus.CANCELLED) {
+            throw new IllegalStateException("Order cannot be cancelled in status: " + status);
+        }
 
-    private void validateBeforePlace() {
-        if (status != OrderStatus.CREATED) {
-            throw new IllegalStateException("Order can only be placed from CREATED status");
-        }
-        if (orderItems.isEmpty()) {
-            throw new IllegalStateException("Order must contain at least one item");
-        }
+        this.status = OrderStatus.CANCELLED;
     }
 
     private void recalculateTotal() {
