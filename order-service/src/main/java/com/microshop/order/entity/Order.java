@@ -69,6 +69,12 @@ public class Order {
         if (item == null || item.getPrice() == null || item.getQuantity() == null) {
             throw new IllegalArgumentException("Item, price, and quantity must not be null");
         }
+        if (item.getProductId() == null) {
+            throw new IllegalArgumentException("Item productId must not be null");
+        }
+        if (item.getSku() == null || item.getSku().trim().isEmpty()) {
+            throw new IllegalArgumentException("Item sku must not be blank");
+        }
         if (item.getPrice().signum() < 0) {
             throw new IllegalArgumentException("Item price cannot be negative");
         }
@@ -85,13 +91,19 @@ public class Order {
         if (this.status != OrderStatus.CREATED) {
             throw new IllegalStateException("Order items can only be updated in CREATED status");
         }
+        if (newQuantity == null) {
+            throw new IllegalArgumentException("Quantity must not be null");
+        }
+        if (newQuantity < 0) {
+            throw new IllegalArgumentException("Quantity cannot be negative");
+        }
 
         OrderItem item = orderItems.stream()
                 .filter(i -> i.getProductId().equals(productId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Item with product ID " + productId + " not found in order"));
+                .orElseThrow(() -> new IllegalStateException("Item with product ID " + productId + " not found in order"));
 
-        if (newQuantity <= 0) {
+        if (newQuantity == 0) {
             removeOrderItem(item);
         } else {
             item.setQuantity(newQuantity);

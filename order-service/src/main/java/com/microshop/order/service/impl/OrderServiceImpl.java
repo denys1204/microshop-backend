@@ -48,7 +48,16 @@ public class OrderServiceImpl implements OrderService {
         Order order = getOrderEntityOrThrow(orderNumber);
         order.updateItemQuantity(productId, request.quantity());
 
-        log.info("Quantity updated for product {} in order {}. New quantity: {}, New total: {}", productId, orderNumber, request.quantity(), order.getTotalAmount());
+        OrderItem updatedItem = order.getOrderItems().stream()
+                .filter(item -> item.getProductId().equals(productId))
+                .findFirst()
+                .orElse(null);
+
+        if (updatedItem != null) {
+            log.info("Quantity updated for product {} in order {}. New quantity: {}, New total: {}", productId, orderNumber, updatedItem.getQuantity(), order.getTotalAmount());
+        } else {
+            log.info("Product {} was removed from order {} due to zero quantity. New total: {}", productId, orderNumber, order.getTotalAmount());
+        }
     }
 
     @Override
