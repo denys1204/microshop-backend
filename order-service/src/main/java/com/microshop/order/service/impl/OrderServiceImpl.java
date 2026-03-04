@@ -4,7 +4,6 @@ import com.microshop.order.dto.OrderRequest;
 import com.microshop.order.dto.OrderResponse;
 import com.microshop.order.dto.UpdateQuantityRequest;
 import com.microshop.order.entity.Order;
-import com.microshop.order.entity.OrderItem;
 import com.microshop.order.entity.PaymentMethod;
 import com.microshop.order.mapper.OrderMapper;
 import com.microshop.order.repository.OrderRepository;
@@ -46,17 +45,14 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void updateItemQuantity(String orderNumber, Long productId, UpdateQuantityRequest request) {
         Order order = getOrderEntityOrThrow(orderNumber);
-        order.updateItemQuantity(productId, request.quantity());
+        int newQuantity = request.quantity();
 
-        OrderItem updatedItem = order.getOrderItems().stream()
-                .filter(item -> item.getProductId().equals(productId))
-                .findFirst()
-                .orElse(null);
+        order.updateItemQuantity(productId, newQuantity);
 
-        if (updatedItem != null) {
-            log.info("Quantity updated for product {} in order {}. New quantity: {}, New total: {}", productId, orderNumber, updatedItem.getQuantity(), order.getTotalAmount());
-        } else {
+        if (newQuantity == 0) {
             log.info("Product {} was removed from order {} due to zero quantity. New total: {}", productId, orderNumber, order.getTotalAmount());
+        } else {
+            log.info("Quantity updated for product {} in order {}. New quantity: {}, New total: {}", productId, orderNumber, newQuantity, order.getTotalAmount());
         }
     }
 
@@ -64,13 +60,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void removeItemFromOrder(String orderNumber, Long productId) {
         Order order = getOrderEntityOrThrow(orderNumber);
-
-        OrderItem itemToRemove = order.getOrderItems().stream()
-                .filter(item -> item.getProductId().equals(productId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Item with product ID " + productId + " not found in order"));
-
-        order.removeOrderItem(itemToRemove);
+        order.removeProduct(productId);
 
         log.info("Product {} was removed from order {}. New total: {}", productId, orderNumber, order.getTotalAmount());
     }

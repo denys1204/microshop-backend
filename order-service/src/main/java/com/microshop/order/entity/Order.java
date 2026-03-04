@@ -10,12 +10,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Getter
 @Entity
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Table(name = "orders")
 public class Order {
     @Id
@@ -63,84 +64,59 @@ public class Order {
     private LocalDateTime updatedAt;
 
     public void addOrderItem(OrderItem item) {
-        if (this.status != OrderStatus.CREATED) {
-            throw new IllegalStateException("Items can only be added to an order in CREATED status");
-        }
-        if (item == null || item.getPrice() == null || item.getQuantity() == null) {
-            throw new IllegalArgumentException("Item, price, and quantity must not be null");
-        }
-        if (item.getProductId() == null) {
-            throw new IllegalArgumentException("Item productId must not be null");
-        }
-        if (item.getSku() == null || item.getSku().trim().isEmpty()) {
-            throw new IllegalArgumentException("Item sku must not be blank");
-        }
-        if (item.getPrice().signum() < 0) {
-            throw new IllegalArgumentException("Item price cannot be negative");
-        }
-        if (item.getQuantity() <= 0) {
-            throw new IllegalArgumentException("Item quantity must be positive");
+        requireStatus(OrderStatus.CREATED, "Items can only be added to an order in CREATED status");
+        validateNewItem(item);
+
+        Optional<OrderItem> existingItem = orderItems.stream()
+                .filter(i -> i.getProductId().equals(item.getProductId()))
+                .findFirst();
+
+        if (existingItem.isPresent()) {
+            OrderItem found = existingItem.get();
+            found.setQuantity(found.getQuantity() + item.getQuantity());
+        } else {
+            item.setOrder(this);
+            orderItems.add(item);
         }
 
-        item.setOrder(this);
-        orderItems.add(item);
         recalculateTotal();
     }
 
     public void updateItemQuantity(Long productId, Integer newQuantity) {
-        if (this.status != OrderStatus.CREATED) {
-            throw new IllegalStateException("Order items can only be updated in CREATED status");
+        requireStatus(OrderStatus.CREATED, "Order items can only be updated in CREATED status");
+        if (newQuantity == null || newQuantity < 0) {
+            throw new IllegalArgumentException("Quantity must be positive or zero");
         }
-        if (newQuantity == null) {
-            throw new IllegalArgumentException("Quantity must not be null");
-        }
-        if (newQuantity < 0) {
-            throw new IllegalArgumentException("Quantity cannot be negative");
-        }
-
-        OrderItem item = orderItems.stream()
-                .filter(i -> i.getProductId().equals(productId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Item with product ID " + productId + " not found in order"));
-
         if (newQuantity == 0) {
-            removeOrderItem(item);
-        } else {
-            item.setQuantity(newQuantity);
-            recalculateTotal();
+            removeProduct(productId);
+            return;
         }
+
+        OrderItem item = findItemByProductIdOrThrow(productId);
+        item.setQuantity(newQuantity);
+        recalculateTotal();
     }
 
-    public void removeOrderItem(OrderItem item) {
-        if (this.status != OrderStatus.CREATED) {
-            throw new IllegalStateException("Items can only be removed from an order in CREATED status");
-        }
+    public void removeProduct(Long productId) {
+        requireStatus(OrderStatus.CREATED, "Items can only be removed from an order in CREATED status");
 
-        if (orderItems.size() <= 1 && orderItems.contains(item)) {
-            throw new IllegalStateException("Order must have at least one item");
-        }
+        OrderItem itemToRemove = findItemByProductIdOrThrow(productId);
 
-        if (orderItems.remove(item)) {
-            if (item.getOrder() == this) {
-                item.setOrder(null);
-            }
+        if (orderItems.remove(itemToRemove)) {
+            itemToRemove.setOrder(null);
             recalculateTotal();
         }
     }
 
     public void assignPayment(PaymentMethod method, String paymentId) {
-        if (this.status != OrderStatus.PLACED) {
-            throw new IllegalStateException("Payment can only be assigned to a PLACED order");
-        }
+        requireStatus(OrderStatus.PLACED, "Payment can only be assigned to a PLACED order");
 
         this.paymentMethod = method;
         this.paymentId = paymentId;
     }
 
     public void place() {
-        if (status != OrderStatus.CREATED) {
-            throw new IllegalStateException("Order can only be placed from CREATED status");
-        }
+        requireStatus(OrderStatus.CREATED, "Order can only be placed from CREATED status");
         if (orderItems.isEmpty()) {
             throw new IllegalStateException("Order must contain at least one item");
         }
@@ -149,14 +125,9 @@ public class Order {
     }
 
     public void pay() {
-        if (status != OrderStatus.PLACED) {
-            throw new IllegalStateException("Order must be PLACED to be paid");
-        }
-        if (paymentMethod == null) {
-            throw new IllegalStateException("Payment method must be selected before paying");
-        }
-        if (paymentId == null || paymentId.isBlank()) {
-            throw new IllegalStateException("Payment must be authorized (paymentId is missing)");
+        requireStatus(OrderStatus.PLACED, "Order must be PLACED to be paid");
+        if (paymentMethod == null || paymentId == null || paymentId.isBlank()) {
+            throw new IllegalStateException("Payment details must be fully provided before paying");
         }
 
         this.status = OrderStatus.PAID;
@@ -174,5 +145,27 @@ public class Order {
         this.totalAmount = orderItems.stream()
                 .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private OrderItem findItemByProductIdOrThrow(Long productId) {
+        return orderItems.stream()
+                .filter(i -> i.getProductId().equals(productId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Item with product ID " + productId + " not found in order"));
+    }
+
+    private void requireStatus(OrderStatus expectedStatus, String message) {
+        if (this.status != expectedStatus) {
+            throw new IllegalStateException(message);
+        }
+    }
+
+    private void validateNewItem(OrderItem item) {
+        if (item == null || item.getProductId() == null || item.getPrice() == null || item.getQuantity() == null) {
+            throw new IllegalArgumentException("Item, productId, price, and quantity must not be null");
+        }
+        if (item.getPrice().signum() < 0 || item.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Price cannot be negative and quantity must be positive");
+        }
     }
 }

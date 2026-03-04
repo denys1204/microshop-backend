@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 @Getter
 @Entity
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Table(name = "order_items")
 public class OrderItem {
     @Id
